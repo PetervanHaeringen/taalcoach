@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nederlands Oefenen</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .exercise {
+            margin-bottom: 20px;
+        }
+        .exercise p {
+            font-size: 1.2em;
+        }
+        .exercise input, .exercise button {
+            padding: 10px;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        .feedback {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+        .correct {
+            color: green;
+        }
+        .incorrect {
+            color: red;
+        }
+        .score {
+            margin-top: 20px;
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nederlands Oefenen</h1>
+        <div class="score">
+            <p>Score: <span id="score">0</span></p>
+        </div>
+        <div class="exercise" id="exercise">
+            <p>Klik op "Start" om een oefening te krijgen.</p>
+        </div>
+        <button onclick="getExercise(1)">Start</button>
+        <div class="feedback" id="feedback"></div>
+    </div>
+
+    <!-- Geluidsbestanden -->
+    <audio id="correctSound" src="static/correct.mp3"></audio>
+    <audio id="finishedSound" src="static/finished.mp3"></audio>
+
+    <script>
+        let currentExerciseId = null;
+        let score = 0;
+
+        // Haal een oefening op van de server
+        async function getExercise(exerciseId) {
+            try {
+                const response = await fetch(`/exercise/${exerciseId}`);
+                if (!response.ok) {
+                    throw new Error('Fout bij ophalen oefening');
+                }
+                const exercise = await response.json();
+                currentExerciseId = exercise.id;
+
+                const exerciseDiv = document.getElementById('exercise');
+                const feedbackDiv = document.getElementById('feedback');
+
+                // Reset de weergave en feedback
+                exerciseDiv.innerHTML = '';
+                feedbackDiv.innerHTML = '';
+
+                let inputField = `<input type="text" id="userAnswer" placeholder="Vul je antwoord in" autocomplete="off" autocapitalize="none">`;
+
+                if (exercise.type === 'word_order') {
+                    exerciseDiv.innerHTML = `
+                        <p>Zet de woorden in de juiste volgorde:</p>
+                        <p>${exercise.sentence.join(' ')}</p>
+                        ${inputField}
+                    `;
+                } else if (exercise.type === 'missing_word') {
+                    exerciseDiv.innerHTML = `
+                        <p>Vul het ontbrekende woord in:</p>
+                        <p>${exercise.sentence}</p>
+                        ${inputField}
+                    `;
+                }
+
+                exerciseDiv.innerHTML += `<button onclick="submitAnswer()">Indienen</button>`;
+
+                // Zorg dat het invoerveld leeg is
+                setTimeout(() => {
+                    document.getElementById('userAnswer').value = '';
+                }, 50);
+            } catch (error) {
+                console.error('Fout bij het ophalen van de oefening:', error);
+                document.getElementById('exercise').innerHTML = '<p style="color: red;">Er is een fout opgetreden bij het laden van de oefening.</p>';
+            }
+        }
+
+        // Dien het antwoord in
+        async function submitAnswer() {
+            try {
+                // Haal de invoer op en zet deze om naar kleine letters
+                const userAnswer = document.getElementById('userAnswer').value.toLowerCase().trim();
+                const response = await fetch('/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        exercise_id: currentExerciseId,
+                        answer: userAnswer // Gebruik de omgezette invoer
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Fout bij het versturen van het antwoord');
+                }
+
+                const result = await response.json();
+                const feedbackDiv = document.getElementById('feedback');
+
+                if (result.correct) {
+                    feedbackDiv.innerHTML = `<p class="correct">${result.feedback}</p>`;
+                    document.getElementById('correctSound').play(); // Geluid voor goed antwoord
+
+                    // Update de score
+                    updateScore(true);
+
+                    // Laad automatisch de volgende oefening na 1 seconde
+                    if (result.next_exercise_id) {
+                        setTimeout(() => {
+                            getExercise(result.next_exercise_id);
+                        }, 1000);
+                    } else {
+                        feedbackDiv.innerHTML += "<p>Je hebt alle oefeningen voltooid!</p>";
+                        document.getElementById('finishedSound').play(); // Geluid voor voltooide oefeningen
+                    }
+                } else {
+                    feedbackDiv.innerHTML = `
+                        <p class="incorrect">${result.feedback}</p>
+                        <p>Het juiste antwoord is: ${result.correct_answer}</p>
+                    `;
+                    updateScore(false); // Geen score-update bij fout antwoord
+                }
+
+                document.getElementById('userAnswer').value = '';
+            } catch (error) {
+                console.error('Fout bij het indienen van het antwoord:', error);
+            }
+        }
+
+        // Update de score
+        function updateScore(isCorrect) {
+            if (isCorrect) {
+                score += 1;
+            }
+            document.getElementById('score').textContent = score;
+        }
+    </script>
+    <br>
+    <br>
+<center><form action="https://www.paypal.com/donate" method="post" target="_top">
+<input type="hidden" name="hosted_button_id" value="E94JJW9GMNZ8L" />
+<input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" title="PayPal - The safer, easier way to pay online!" alt="Donate with PayPal button" />
+<img alt="" border="0" src="https://www.paypal.com/en_NL/i/scr/pixel.gif" width="1" height="1" />
+</form></center>
+
+</body>
+</html>
